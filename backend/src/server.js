@@ -26,7 +26,7 @@ app.use(morgan('dev'));
 
 // Routes
 app.use('/auth', authRoutes);
-app.use('/podcast', podcastRoutes);
+app.use('/api/podcasts', podcastRoutes);
 
 // Health check
 app.get('/', (req, res) => {

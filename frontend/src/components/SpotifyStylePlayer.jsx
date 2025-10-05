@@ -13,7 +13,12 @@ const SpotifyStylePlayer = ({ track, isPlaying, onPlayPause, onClose }) => {
     if (!audioRef.current || !track) return;
 
     if (isPlaying) {
-      audioRef.current.play().catch(console.error);
+      console.log('Attempting to play audio:', track.audioUrl);
+      audioRef.current.play().catch((error) => {
+        console.error('Audio play failed:', error);
+        // Reset playing state if play fails
+        onPlayPause(false);
+      });
     } else {
       audioRef.current.pause();
     }
@@ -37,7 +42,17 @@ const SpotifyStylePlayer = ({ track, isPlaying, onPlayPause, onClose }) => {
   const handleLoadedMetadata = () => {
     if (audioRef.current) {
       setDuration(audioRef.current.duration);
+      console.log('Audio metadata loaded:', track.audioUrl, 'Duration:', audioRef.current.duration);
     }
+  };
+
+  const handleError = (e) => {
+    console.error('Audio loading error:', e, 'Source:', track.audioUrl);
+    onPlayPause(false);
+  };
+
+  const handleCanPlay = () => {
+    console.log('Audio can start playing:', track.audioUrl);
   };
 
   const handleSeek = (e) => {
@@ -89,6 +104,8 @@ const SpotifyStylePlayer = ({ track, isPlaying, onPlayPause, onClose }) => {
           src={track.audioUrl}
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
+          onError={handleError}
+          onCanPlay={handleCanPlay}
           onEnded={() => onPlayPause(false)}
         />
 

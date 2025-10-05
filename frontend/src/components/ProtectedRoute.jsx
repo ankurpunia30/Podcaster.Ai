@@ -31,15 +31,9 @@ export default function ProtectedRoute({ children }) {
   const hasToken = localStorage.getItem('token')
   const hasAuth = isAuthenticated || hasToken
   
-  console.log('ProtectedRoute check:', { 
-    isAuthenticated, 
-    hasToken: !!hasToken, 
-    hasAuth,
-    pathname: location.pathname 
-  })
-  
+  // Only log when there are auth issues for debugging
   if (!hasAuth) {
-    console.log('Redirecting to login from:', location.pathname)
+    console.log('🔒 Auth required - redirecting to login from:', location.pathname)
     return <Navigate to={`/login?next=${encodeURIComponent(location.pathname)}`} replace />
   }
   

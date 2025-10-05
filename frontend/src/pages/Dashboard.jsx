@@ -1,10 +1,16 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '../store/useAuthStore'
+import usePodcastStore from '../stores/usePodcastStore'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import AudioPlayer from '../components/AudioPlayer'
 import SpotifyStylePlayer from '../components/SpotifyStylePlayer'
+import APIMonitor from '../components/APIMonitor'
+import OptimizedPodcastCard from '../components/OptimizedPodcastCard'
+import { VirtualList } from '../hooks/useVirtualScroll.jsx'
+import { LazyComponent } from '../hooks/useLazyLoading.jsx'
+import { useOptimizedFilter, usePerformanceMonitor } from '../hooks/usePerformance'
 import { Line, Doughnut, Bar } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -17,6 +23,7 @@ import {
   Legend,
   ArcElement,
   BarElement,
+  Filler,
 } from 'chart.js'
 
 ChartJS.register(
@@ -28,21 +35,76 @@ ChartJS.register(
   Tooltip, 
   Legend,
   ArcElement,
-  BarElement
+  BarElement,
+  Filler
 )
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000'
 const AI_SERVICE_BASE = import.meta.env.VITE_AI_SERVICE_BASE || 'http://localhost:8000'
 
 function Dashboard() {
-  const { user, isAuthenticated, logout } = useAuthStore()
+  const { user, token, isAuthenticated, logout } = useAuthStore()
+  const { fetchPodcasts, startSmartPolling, stopPolling, podcasts } = usePodcastStore()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('overview')
   const [currentTrack, setCurrentTrack] = useState(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [notifications, setNotifications] = useState([])
-  const [lastCheckedTime, setLastCheckedTime] = useState(new Date())
   const [toastMessage, setToastMessage] = useState('')
 
+  // Debug authentication state
+  useEffect(() => {
+    console.log('Dashboard Auth State:', { 
+      isAuthenticated, 
+      hasUser: !!user, 
+      hasToken: !!token,
+      userEmail: user?.email 
+    })
+  }, [isAuthenticated, user, token])
+
+  // Fetch initial data and start smart polling
+  useEffect(() => {
+    if (!isAuthenticated || !token) {
+      navigate('/login?next=/dashboard')
+      return
+    }
+
+    // Fetch initial podcast data
+    fetchPodcasts(token)
+
+    // Start smart polling (only polls when there are generating podcasts)
+    const pollingId = startSmartPolling(token, 15000) // Check every 15 seconds instead of 10
+
+    return () => {
+      stopPolling()
+    }
+  }, [isAuthenticated, token, navigate])
+
+  // Watch for completed podcasts and create notifications
+  useEffect(() => {
+    const completedPodcasts = podcasts.filter(p => p.status === 'completed')
+    
+    completedPodcasts.forEach(podcast => {
+      const existingNotification = notifications.find(n => 
+        n.type === 'podcast_completed' && n.podcast?.id === podcast.id
+      )
+      
+      if (!existingNotification) {
+        const newNotification = {
+          id: `${podcast.id}_${Date.now()}`,
+          type: 'podcast_completed',
+          title: 'Podcast Ready! 🎉',
+          message: `"${podcast.title}" has been generated and is ready to play.`,
+          podcast: podcast,
+          timestamp: new Date(),
+          read: false
+        }
+        setNotifications(prev => [newNotification, ...prev].slice(0, 10))
+      }
+    })
+  }, [podcasts])
+
+  // Original polling logic (remove this after testing)
+  /*
   // Check for new completed podcasts every 10 seconds
   useEffect(() => {
     if (!isAuthenticated) return
@@ -101,14 +163,29 @@ function Dashboard() {
       navigate('/login?next=/dashboard')
     }
   }, [isAuthenticated, navigate])
+  */
 
   const playTrack = (podcast) => {
-    setCurrentTrack(podcast)
+    // Ensure the audioUrl is a complete URL
+    const fullAudioUrl = podcast.audioUrl?.startsWith('http') 
+      ? podcast.audioUrl 
+      : `http://localhost:8000/${podcast.audioUrl}`;
+    
+    console.log('Playing podcast:', podcast.title, 'Audio URL:', fullAudioUrl);
+    
+    setCurrentTrack({
+      ...podcast,
+      audioUrl: fullAudioUrl
+    })
     setIsPlaying(true)
   }
 
   const pauseTrack = () => {
     setIsPlaying(false)
+  }
+
+  const handlePlayPause = (shouldPlay) => {
+    setIsPlaying(shouldPlay)
   }
 
   const handleNotificationClick = (notification) => {
@@ -141,6 +218,29 @@ function Dashboard() {
     window.addEventListener('showToast', handleToastMessage)
     return () => window.removeEventListener('showToast', handleToastMessage)
   }, [])
+
+  // Add auth status indicator for debugging
+  if (!isAuthenticated || !token) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
+          <p className="text-gray-400 mb-6">Please log in to access the dashboard</p>
+          <button 
+            onClick={() => navigate('/login?next=/dashboard')}
+            className="bg-blue-500 hover:bg-blue-600 px-6 py-2 rounded-lg transition-colors"
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black text-white relative overflow-hidden">
@@ -199,13 +299,16 @@ function Dashboard() {
         <SpotifyStylePlayer 
           track={currentTrack}
           isPlaying={isPlaying}
-          onPlayPause={setIsPlaying}
+          onPlayPause={handlePlayPause}
           onClose={() => {
             setCurrentTrack(null);
             setIsPlaying(false);
           }}
         />
       )}
+
+      {/* API Performance Monitor (Development Only) */}
+      <APIMonitor />
 
       {/* Toast Notification */}
       {toastMessage && (
@@ -465,33 +568,15 @@ function Header({ user, activeTab, setActiveTab, navigate, notifications = [], o
 
 // Overview Tab - Main dashboard view
 function OverviewTab({ onPlay }) {
-  const [podcasts, setPodcasts] = useState([])
-  const [loading, setLoading] = useState(true)
-  const { user, token } = useAuthStore()
+  const { podcasts, loading, fetchPodcasts } = usePodcastStore()
+  const { token } = useAuthStore()
 
-  // Fetch podcasts for overview
+  // Fetch podcasts only if not already loaded
   useEffect(() => {
-    const fetchPodcasts = async () => {
-      try {
-        const response = await axios.get(`${API_BASE}/api/podcasts`, {
-          headers: { 
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        })
-        setPodcasts(response.data.podcasts || [])
-      } catch (error) {
-        console.error('Failed to fetch podcasts:', error)
-        setPodcasts([])
-      } finally {
-        setLoading(false)
-      }
+    if (token && podcasts.length === 0) {
+      fetchPodcasts(token)
     }
-
-    if (token) {
-      fetchPodcasts()
-    }
-  }, [token])
+  }, [token, podcasts.length, fetchPodcasts])
 
   return (
     <motion.div
@@ -1172,7 +1257,8 @@ function QuickGenerate() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState('')
   const navigate = useNavigate()
-  const { user, token } = useAuthStore()
+  const { token } = useAuthStore()
+  const { addPodcast } = usePodcastStore()
 
   const voices = [
     { name: 'Nova', accent: 'US English', gender: 'Female' },
@@ -1201,6 +1287,14 @@ function QuickGenerate() {
   const handleGenerate = async () => {
     if (!topic.trim()) return
     
+    console.log('QuickGenerate: Starting generation with token:', token ? 'present' : 'missing')
+    console.log('QuickGenerate: User:', user)
+    
+    if (!token) {
+      setError('Authentication required. Please log in again.')
+      return
+    }
+    
     setIsGenerating(true)
     setError('')
     
@@ -1208,15 +1302,13 @@ function QuickGenerate() {
       // Extract duration numbers for API
       const durationMinutes = parseInt(duration.split('-')[1]) || 8 // Use max duration as target
       
-      const response = await axios.post(`${API_BASE}/api/podcasts`, {
-        title: topic.trim(),
-        description: `AI-generated ${duration}-minute ${style} podcast about ${topic.trim()} for ${targetAudience} audience`,
-        voice: voice,
+      const response = await axios.post(`${API_BASE}/api/podcasts/generate`, {
+        topic: topic.trim(),
         style: style,
-        duration: duration,
-        durationMinutes: durationMinutes,
-        targetAudience: targetAudience,
-        content: `Create a comprehensive ${durationMinutes}-minute ${style} podcast about: ${topic.trim()}. Target audience: ${targetAudience}. Make it engaging and informative with substantial content suitable for a ${durationMinutes}-minute episode.`
+        voice: voice,
+        speed: 1.0,
+        duration: durationMinutes,
+        targetAudience: targetAudience
       }, {
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -1224,7 +1316,22 @@ function QuickGenerate() {
         }
       })
 
-      if (response.data.success) {
+      if (response.data) {
+        // Add the new podcast to the store for immediate UI update
+        if (response.data.id) {
+          addPodcast({
+            id: response.data.id,
+            title: topic.trim(),
+            status: 'generating',
+            topic: topic.trim(),
+            style: style,
+            voice: voice,
+            duration: '0:00',
+            createdAt: new Date().toISOString(),
+            audioUrl: null
+          })
+        }
+        
         // Clear form but keep preferences
         setTopic('')
         
@@ -1241,7 +1348,16 @@ function QuickGenerate() {
       }
     } catch (error) {
       console.error('Failed to generate podcast:', error)
-      setError(error.response?.data?.message || 'Failed to generate podcast. Please try again.')
+      
+      if (error.response?.status === 401) {
+        setError('Authentication expired. Please log in again.')
+        // Optionally redirect to login
+        setTimeout(() => {
+          navigate('/login?next=/dashboard')
+        }, 2000)
+      } else {
+        setError(error.response?.data?.message || 'Failed to generate podcast. Please try again.')
+      }
     } finally {
       setIsGenerating(false)
     }
@@ -1543,33 +1659,15 @@ function MyPodcastsPlayer({ podcasts = [], onPlay }) {
 
 // Analytics Tab - Shows performance metrics and charts
 function AnalyticsTab() {
-  const [podcasts, setPodcasts] = useState([])
-  const [loading, setLoading] = useState(true)
-  const { user, token } = useAuthStore()
+  const { podcasts, loading, fetchPodcasts } = usePodcastStore()
+  const { token } = useAuthStore()
 
-  // Fetch podcasts for analytics
+  // Fetch podcasts only if not already loaded
   useEffect(() => {
-    const fetchPodcasts = async () => {
-      try {
-        const response = await axios.get(`${API_BASE}/api/podcasts`, {
-          headers: { 
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        })
-        setPodcasts(response.data.podcasts || [])
-      } catch (error) {
-        console.error('Failed to fetch podcasts:', error)
-        setPodcasts([])
-      } finally {
-        setLoading(false)
-      }
+    if (token && podcasts.length === 0) {
+      fetchPodcasts(token)
     }
-
-    if (token) {
-      fetchPodcasts()
-    }
-  }, [token])
+  }, [token, podcasts.length, fetchPodcasts])
 
   return (
     <motion.div
@@ -1603,41 +1701,38 @@ function AnalyticsTab() {
   )
 }
 
-// Library Tab - Shows all user's podcasts
+// Library Tab - Shows all user's podcasts with virtual scrolling
 function LibraryTab({ onPlay }) {
-  const [podcasts, setPodcasts] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState('all')
-  const { user, token } = useAuthStore()
-
-  // Fetch podcasts
-  useEffect(() => {
-    const fetchPodcasts = async () => {
-      try {
-        const response = await axios.get(`${API_BASE}/api/podcasts`, {
-          headers: { 
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        })
-        setPodcasts(response.data.podcasts || [])
-      } catch (error) {
-        console.error('Failed to fetch podcasts:', error)
-        setPodcasts([])
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    if (token) {
-      fetchPodcasts()
-    }
-  }, [token])
-
-  const filteredPodcasts = podcasts.filter(podcast => {
-    if (filter === 'all') return true
-    return podcast.status === filter
+  const { podcasts, loading, fetchPodcasts } = usePodcastStore()
+  const { token } = useAuthStore()
+  const { markRenderStart } = usePerformanceMonitor('LibraryTab')
+  
+  const [filterState, setFilterState] = useState({
+    status: 'all',
+    search: '',
+    sortBy: { field: 'createdAt', direction: 'desc' }
   })
+
+  const { filteredData: filteredPodcasts, isLoading: isFiltering } = useOptimizedFilter(
+    podcasts, 
+    filterState
+  )
+
+  useEffect(() => {
+    markRenderStart()
+    if (token && podcasts.length === 0) {
+      fetchPodcasts(token)
+    }
+  }, [token, podcasts.length, fetchPodcasts, markRenderStart])
+
+  const renderPodcastItem = useCallback((podcast, index) => (
+    <OptimizedPodcastCard
+      key={podcast.id}
+      podcast={podcast}
+      onPlay={onPlay}
+      showDetails={true}
+    />
+  ), [onPlay])
 
   return (
     <motion.div
@@ -1655,8 +1750,8 @@ function LibraryTab({ onPlay }) {
         
         <div className="flex items-center gap-4">
           <select 
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
+            value={filterState.status}
+            onChange={(e) => setFilterState(prev => ({ ...prev, status: e.target.value }))}
             className="bg-white/5 border border-white/20 rounded-xl px-4 py-2 text-white"
           >
             <option value="all" className="bg-gray-900">All Podcasts</option>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import axios from 'axios'
 import { useNotificationStore } from '../store/useNotificationStore'
+import { useAuthStore } from '../store/useAuthStore'
 
 const initial = {
   title: '',
@@ -18,9 +19,20 @@ const initial = {
   promo_text: '',
   voice_style: 'Warm, conversational',
   music_style: 'Modern indie-electronic',
+  // New multi-speaker options
+  num_speakers: 1,
+  speaker_styles: ['conversational'],
+  // New music options
+  include_intro_music: true,
+  include_outro_music: true,
+  include_background_music: false,
+  intro_music_style: 'upbeat',
+  outro_music_style: 'upbeat',
+  background_music_style: 'ambient',
+  production_quality: 'standard'
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000'
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000'
 
 export default function EpisodeForm() {
   const [form, setForm] = useState(initial)
@@ -34,6 +46,7 @@ export default function EpisodeForm() {
   const [progress, setProgress] = useState(0)
   const [refreshKey, setRefreshKey] = useState(0) // Force re-render key
   const { success, error: notifyError, info } = useNotificationStore()
+  const { token } = useAuthStore()
 
   // Debug: Monitor form changes
   useEffect(() => {
@@ -106,15 +119,20 @@ export default function EpisodeForm() {
         setProgress(prev => prev < 90 ? prev + 10 : prev)
       }, 200)
 
-      // Use your AI service's script generation endpoint
+      // Use backend script generation endpoint
       const durationMinutes = parseInt(form.duration.replace(/\D/g, '')) || 15
-      const response = await axios.post(`${API_BASE}/script/generate`, {
+      const response = await axios.post(`${API_BASE}/api/podcasts/script`, {
         topic: aiTopic,
         style: form.tone.toLowerCase(),
         duration_minutes: durationMinutes,
         tone: form.tone.toLowerCase(),
         include_intro: true,
         include_outro: true
+      }, {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       })
       
       const scriptData = response.data
@@ -175,6 +193,11 @@ export default function EpisodeForm() {
   const generatePodcast = async () => {
     if (!validateStep(1) || !validateStep(2) || !validateStep(3)) return
 
+    if (!token) {
+      notifyError('Authentication required. Please log in again.', 'Authentication Error')
+      return
+    }
+
     try {
       setIsGenerating(true)
       setProgress(0)
@@ -202,33 +225,36 @@ export default function EpisodeForm() {
         music_style: form.music_style,
       }
 
-      let result
-      // Use your AI service's complete podcast generation endpoint
+      // Extract duration minutes for API
       const durationMinutes = parseInt(form.duration.replace(/\D/g, '')) || 15
+
+      // Simplified request for backend API
       const podcastRequest = {
-        script_params: {
-          topic: form.title,
-          style: form.tone.toLowerCase(),
-          duration: durationMinutes,
-          audience: form.audience.toLowerCase()
-        },
-        tts_params: {
-          text: form.script,
-          model: "coqui",
-          speed: 1.0,
-          pitch: 0.0
-        },
-        audio_params: {
-          enhance_audio: true,
-          remove_noise: true,
-          normalize: true,
-          add_effects: false
-        },
-        include_music: false
+        topic: form.title,
+        style: form.tone.toLowerCase(),
+        voice: form.voice_style || 'default',
+        speed: 1.0,
+        script: form.script,
+        duration: durationMinutes,
+        metadata: {
+          title: form.title,
+          genre: form.genre,
+          audience: form.audience,
+          language: form.language,
+          short_description: form.short_description,
+          long_description: form.long_description,
+          keywords: form.keywords,
+          promo_text: form.promo_text,
+        }
       }
       
-      const response = await axios.post(`${API_BASE}/podcast/generate`, podcastRequest)
-      result = response.data
+      const response = await axios.post(`${API_BASE}/api/podcasts/generate`, podcastRequest, {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      const result = response.data
       
       clearInterval(progressInterval)
       setProgress(100)
@@ -861,17 +887,66 @@ function VoiceStyleStep({ form, update, errors }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-6"
+      className="space-y-8"
     >
       <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Voice & Audio Style</h2>
-        <p className="text-gray-400">Choose the perfect voice and audio styling for your podcast.</p>
+        <h2 className="text-2xl font-bold text-white mb-2">Voice & Audio Production</h2>
+        <p className="text-gray-400">Configure speakers, voices, and music for professional podcast production.</p>
+      </div>
+
+      {/* Multi-Speaker Configuration */}
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">👥 Speaker Configuration</h3>
+        
+        <div className="grid md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Number of Speakers
+            </label>
+            <select
+              value={form.num_speakers}
+              onChange={update('num_speakers')}
+              className="w-full bg-white/5 border border-white/20 rounded-xl px-4 py-3 text-white focus:bg-white/10 focus:border-blue-500/50 transition-all"
+            >
+              <option value={1} className="bg-gray-900">Single Speaker (Monologue)</option>
+              <option value={2} className="bg-gray-900">Two Speakers (Interview/Discussion)</option>
+              <option value={3} className="bg-gray-900">Three Speakers (Panel Discussion)</option>
+            </select>
+          </div>
+
+          {form.num_speakers > 1 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Conversation Style
+              </label>
+              <select
+                value={form.speaker_styles[0] || 'conversational'}
+                onChange={(e) => update('speaker_styles')({ target: { value: [e.target.value] } })}
+                className="w-full bg-white/5 border border-white/20 rounded-xl px-4 py-3 text-white focus:bg-white/10 focus:border-blue-500/50 transition-all"
+              >
+                <option value="conversational" className="bg-gray-900">Conversational Interview</option>
+                <option value="debate" className="bg-gray-900">Debate/Discussion</option>
+                <option value="educational" className="bg-gray-900">Educational Dialogue</option>
+                <option value="storytelling" className="bg-gray-900">Storytelling Format</option>
+              </select>
+            </div>
+          )}
+        </div>
+
+        {form.num_speakers > 1 && (
+          <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+            <p className="text-blue-400 text-sm">
+              💡 <strong>Multi-Speaker Mode:</strong> AI will generate natural conversation between {form.num_speakers} speakers 
+              with different voices and personalities for a more engaging podcast experience.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Voice Selection */}
       <div>
         <label className="block text-sm font-medium text-gray-300 mb-4">
-          AI Voice Selection
+          🎙️ Primary Voice Selection
         </label>
         <div className="grid md:grid-cols-2 gap-4">
           {voices.map((voice) => (
@@ -905,20 +980,98 @@ function VoiceStyleStep({ form, update, errors }) {
         {errors.voice_style && <p className="text-red-400 text-sm mt-2">{errors.voice_style}</p>}
       </div>
 
-      {/* Music Style */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-2">
-          Background Music Style
-        </label>
-        <select
-          value={form.music_style}
-          onChange={update('music_style')}
-          className="w-full bg-white/5 border border-white/20 rounded-xl px-4 py-3 text-white focus:bg-white/10 focus:border-blue-500/50 transition-all"
-        >
-          {musicStyles.map(style => (
-            <option key={style} value={style} className="bg-gray-900">{style}</option>
-          ))}
-        </select>
+      {/* Music & Production */}
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">🎵 Music & Production</h3>
+        
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Music Options */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="intro_music"
+                checked={form.include_intro_music}
+                onChange={(e) => update('include_intro_music')({ target: { value: e.target.checked } })}
+                className="w-4 h-4 text-blue-500 bg-white/10 border-white/30 rounded focus:ring-blue-500"
+              />
+              <label htmlFor="intro_music" className="text-white">Include Intro Music</label>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="outro_music"
+                checked={form.include_outro_music}
+                onChange={(e) => update('include_outro_music')({ target: { value: e.target.checked } })}
+                className="w-4 h-4 text-blue-500 bg-white/10 border-white/30 rounded focus:ring-blue-500"
+              />
+              <label htmlFor="outro_music" className="text-white">Include Outro Music</label>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="background_music"
+                checked={form.include_background_music}
+                onChange={(e) => update('include_background_music')({ target: { value: e.target.checked } })}
+                className="w-4 h-4 text-blue-500 bg-white/10 border-white/30 rounded focus:ring-blue-500"
+              />
+              <label htmlFor="background_music" className="text-white">Subtle Background Music</label>
+            </div>
+          </div>
+
+          {/* Music Style Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Music Style
+            </label>
+            <select
+              value={form.intro_music_style}
+              onChange={update('intro_music_style')}
+              className="w-full bg-white/5 border border-white/20 rounded-xl px-4 py-3 text-white focus:bg-white/10 focus:border-blue-500/50 transition-all"
+            >
+              <option value="upbeat" className="bg-gray-900">Upbeat & Energetic</option>
+              <option value="ambient" className="bg-gray-900">Ambient & Relaxing</option>
+              <option value="dramatic" className="bg-gray-900">Dramatic & Cinematic</option>
+              <option value="corporate" className="bg-gray-900">Professional & Corporate</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Production Quality */}
+        <div className="mt-6">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Production Quality
+          </label>
+          <div className="grid grid-cols-2 gap-4">
+            <motion.button
+              onClick={() => update('production_quality')({ target: { value: 'standard' } })}
+              className={`p-4 rounded-xl border-2 transition-all ${
+                form.production_quality === 'standard'
+                  ? 'border-blue-500 bg-blue-500/10'
+                  : 'border-white/20 bg-white/5 hover:bg-white/10'
+              }`}
+              whileHover={{ scale: 1.02 }}
+            >
+              <h4 className="font-semibold text-white">Standard</h4>
+              <p className="text-sm text-gray-400">Quick generation, good quality</p>
+            </motion.button>
+
+            <motion.button
+              onClick={() => update('production_quality')({ target: { value: 'professional' } })}
+              className={`p-4 rounded-xl border-2 transition-all ${
+                form.production_quality === 'professional'
+                  ? 'border-blue-500 bg-blue-500/10'
+                  : 'border-white/20 bg-white/5 hover:bg-white/10'
+              }`}
+              whileHover={{ scale: 1.02 }}
+            >
+              <h4 className="font-semibold text-white">Professional</h4>
+              <p className="text-sm text-gray-400">Enhanced audio, full production</p>
+            </motion.button>
+          </div>
+        </div>
       </div>
 
       {/* Additional Settings */}

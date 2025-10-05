@@ -1,0 +1,441 @@
+# ===========================================
+# AI-Powered Podcast Generation Platform
+# Comprehensive .gitignore File
+# ===========================================
+
+# ===== ENVIRONMENT & SECRETS =====
+# Environment variables and sensitive data
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.staging
+*.env
+config/secrets.json
+config/keys.json
+
+# ===== NODE.JS & NPM =====
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Grunt intermediate storage
+.grunt
+
+# Bower dependency directory
+bower_components
+
+# node-waf configuration
+.lock-wscript
+
+# Compiled binary addons
+build/Release
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional stylelint cache
+.stylelintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# parcel-bundler cache
+.cache
+.parcel-cache
+
+# Next.js build output
+.next
+
+# Nuxt.js build / generate output
+.nuxt
+dist
+
+# Storybook build outputs
+.out
+.storybook-out
+
+# Temporary folders
+tmp/
+temp/
+
+# ===== PYTHON & VIRTUAL ENVIRONMENT =====
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# celery beat schedule file
+celerybeat-schedule
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Virtual environment directories (Python)
+bin/
+lib/
+lib64/
+include/
+share/
+pyvenv.cfg
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ===== REACT & FRONTEND BUILD =====
+# Build outputs
+build/
+dist/
+out/
+
+# Vite
+.vite/
+
+# Webpack
+.webpack/
+
+# Rollup
+.rollup/
+
+# ===== AUDIO & MEDIA FILES =====
+# Generated audio files
+*.wav
+*.mp3
+*.ogg
+*.flac
+*.aac
+*.m4a
+
+# Audio output directories
+outputs/
+audio_outputs/
+generated_audio/
+temp_audio/
+
+# Exclude demo/sample audio (if you want to keep them)
+!**/demo*.wav
+!**/sample*.wav
+
+# ===== AI SERVICE SPECIFIC =====
+# Model files and caches
+models/
+*.pkl
+*.joblib
+*.model
+*.weights
+
+# Hugging Face cache
+.cache/huggingface/
+
+# TTS model cache
+.cache/tts/
+
+# Groq API cache
+.groq_cache/
+
+# ===== DATABASE =====
+# SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+
+# MongoDB dumps
+*.bson
+dumps/
+
+# ===== LOGS & DEBUG =====
+# Log files
+logs/
+*.log
+log/
+
+# Debug files
+debug/
+.debug/
+debug.log
+
+# ===== SYSTEM FILES =====
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ===== EDITORS & IDEs =====
+# VSCode
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# IntelliJ
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+.netrwhist
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# ===== TESTING =====
+# Test artifacts
+test-results/
+test-reports/
+coverage/
+.nyc_output/
+
+# ===== DOCUMENTATION =====
+# Generated docs
+docs/build/
+docs/dist/
+
+# ===== DEPLOYMENT =====
+# Docker
+.dockerignore
+
+# Vercel
+.vercel
+
+# Netlify
+.netlify
+
+# ===== MISC =====
+# Backup files
+*.bak
+*.backup
+*.tmp
+
+# Archive files
+*.zip
+*.tar.gz
+*.rar
+
+# SSL certificates
+*.pem
+*.key
+*.crt
+*.csr
+
+# Local configuration overrides
+local.json
+local.js
+
+# Runtime configuration
+runtime/
+
+# ===== PROJECT SPECIFIC =====
+# Temporary files from your project
+temp/
+tmp/
+*_backup.*
+
+# Generated presentations
+*.pptx
+*.ppt
+presentations/
+
+# User uploads
+uploads/
+user_content/
+
+# Generated podcasts (except samples)
+podcasts/
+!podcasts/samples/
+
+# Analytics data
+analytics/
+metrics/
+
+# Cache directories
+.cache/
+cache/
+
+# Frontend state debug files
+frontend-state-debug.js
+
+# AI service test outputs
+ai-service/test_*.wav
+ai-service/podcast_*.wav
+ai-service/style_*.wav
+ai-service/improved_*.wav
+ai-service/ultra_safe_*.wav
+ai-service/final_*.wav
+
+# Keep important documentation
+!README.md
+!SETUP.md
+!API_DOCS.md
